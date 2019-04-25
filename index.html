@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+<link rel="shortcut icon" href="http://img.6h5.cn/static/cdn/nran/favicon.ico" type="image/x-icon">
+<title>杭师大家教</title>
+<style>
+body,html,p,ul,li,h4{margin:0;padding:0;}
+body{background:#f3f4f5;font-size:14px;	font-family:'MicrosoftYaHei',Helvetica;}
+a{color:#666;text-decoration:none;}
+a:hover{background-color:#666;color:#fff;}
+*{-webkit-tap-highlight-color:rgba(0,0,0,0);}
+#app{
+	width: 100%;
+	max-width: 600px;
+	margin: 0 auto;
+	position: relative;
+	background-color: #f3f4f5;
+}
+ul#ul_1 {
+  list-style: none;
+  display: flex;
+  width: 100%;
+  height: 50px;
+  line-height: 50px;
+}
+ul#ul_1 li{
+	flex: 1;
+	text-align: center;
+}
+.nav {
+  position: fixed;
+  width: 100%;
+  max-width: 600px;
+  bottom: 0;
+	background-color: #fff;
+	z-index: 11;
+	box-shadow: 0 -2px 10px 0px rgba(0, 0, 0, 0.1);
+}
+.content-1 {
+  margin-bottom: 70px;
+}
+.content-1 .list {
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+  background-color: #fff;
+}
+.content-1 .list p{
+	padding: 0 10px;
+}
+.content-1 .list:last-child{
+	border-bottom: none;
+}
+</style>
+</head>
+<body>
+<div id="app">
+	<div class="nav">
+		<ul id="ul_1">
+			<li type="parent">最新家教</li>
+			<li type="job">最近兼职</li>
+			<li type="teacher">教员中心</li>
+			<li type="checkin">自助登记</li>
+		</ul>
+	</div>
+	<div class="content-1" id="jiajiaoList"></div>
+</div>
+<script src="data.js"></script>
+</body>
+</html>

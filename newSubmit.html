@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+<link rel="shortcut icon" href="http://img.6h5.cn/static/cdn/nran/favicon.ico" type="image/x-icon">
+<title>杭师大家教</title>
+<!-- 引入样式 -->
+<link rel="stylesheet" href="http://img.6h5.cn/static/cdn/element-ui.2.4.2.theme-chalk.index.css">
+<style>
+body,html,p,ul,li,h4{margin:0;padding:0;}
+body{background:#f3f4f5;font-size:14px;	font-family:'MicrosoftYaHei',Helvetica;}
+input,button,select,textarea{outline:none;-webkit-appearance: none;}
+*{-webkit-tap-highlight-color:rgba(0,0,0,0);}
+#app{width: 100%;max-width: 600px;margin: 0 auto;position: relative;background-color: #f3f4f5;}
+input,textarea{padding: 5px!important;}
+.el-radio__label,.el-checkbox__label {padding-left: 5px;}
+.el-message{top: 0;}
+.el-message-box {
+    max-width: 95%;
+}
+</style>
+<script src="http://img.6h5.cn/static/cdn/vue.2.5.2.min.js"></script>
+<!-- 引入组件库 -->
+<script src="http://img.6h5.cn/static/cdn/element-ui.2.4.2.index.js"></script>
+</head>
+<body>
+<div id="app">
+	<template>
+		<div class="div-1">
+			<div style="background-color: #5394c5;padding: 10px;color: #fff;">
+				<section>
+					<p style="text-align: center;">
+						<img src="hznu-logo-0.png" alt="" style="width: 30%;">
+					</p>
+					<p style="text-align: center;font-size: 20px;">【{{titleArr[Number(params.type)-1]}}】信息自助登记</p>
+					<p style="font-size: 13px;" v-html="desc"></p>
+				</section>
+			</div>
+			<div class="div-2" style="background-color: #fff;padding: 10px;">
+				<section v-for="(el,index) in submitContent[Number(params.type)-1]" style="margin:10px 0;font-size: 15px;">
+					<p style="margin: 5px 0;">{{index+1}}.{{el.label}}: <span v-if="el.required" style="color:red;">*</span></p>
+					<div>
+						<!-- input/textarea -->
+						<span v-if="el.valueType=='input' || el.valueType=='textarea'">
+							<el-input :type="el.inputType||el.valueType||'text'" v-model="submitForm['form'+params.type][el.valueName]" :placeholder="el.placeholder" :style="'display:inline-block;width:'+((100/Number(el.column))-1)+'%;'" size="small" :rows="3" resize="none" :maxlength="el.inputMaxLength||''" @focus="inputFocus" clearable></el-input>
+						</span>
+						<!-- 单选 -->
+						<span v-if="el.valueType=='radio'">
+							<span v-for="em in el.valueList" :style="'display:inline-block;margin-bottom: 5px;width:'+((100/Number(el.column))-1)+'%;'">
+							  <el-radio v-model="submitForm['form'+params.type][el.valueName]" :label="em">{{em}}</el-radio>
+							</span>
+						</span>
+						<!-- 多选 -->
+						<span v-if="el.valueType=='checkbox'">
+							<el-checkbox-group v-model="submitForm['form'+params.type][el.valueName]">
+								<span v-for="em in el.valueList" :style="'display:inline-block;margin-bottom: 5px;width:'+((100/Number(el.column))-1)+'%;'">
+									<el-checkbox :label="em"></el-checkbox>
+								</span>
+							</el-checkbox-group>
+						</span>
+						<!-- 下拉选 -->
+						<span v-if="el.valueType=='select'" >
+							<el-select v-model="submitForm['form'+params.type][el.valueName]" :placeholder="el.placeholder" :style="'display:inline-block;width:'+((100/Number(el.column))-1)+'%;'" size="small">
+								<el-option v-for="(em,index) in el.valueList" :key="index" :label="em" :value="em"></el-option>
+							</el-select>
+						</span>
+					</div>
+				</section>
+				<p style="text-align: center;">
+					<button style="width: 80%;
+					    background-color: #5393c5;
+					    height: 40px;
+					    line-height: 40px;
+					    border: none;
+					    color: #fff;
+					    font-size: 15px;
+					    border-radius: 2px;" @click="submit">
+					    	<span v-if="submiting" style="opacity: .5;">提交中...</span>
+					    	<span v-else>提交</span>
+					    </button>
+				</p>
+			</div>
+			<div class="div-3">
+				<p style="text-align: center;height: 72px;line-height: 72px;">
+					<!-- <img src="nuan-logo.png" alt="" style="height: 16px;vertical-align: sub;"> -->
+					<span style="font-size: 13px;color: #000;opacity: .2">由 <img src="nran-logo.svg" style="zoom: .2;"/> 提供技术支持</span>
+				</p>
+			</div>
+		</div>
+	</template>
+</div>
+<script>
+var xhr_origin = 'https://api.6h5.cn/sun'
+if(window.location.href.indexOf('hsdjj.')==-1){
+	xhr_origin = 'http://localhost:9581'
+}
+
+// urlEncode
+var urlEncode = function(param, key, encode) {
+    if (param==null) return '';
+    var paramStr = '';
+    var t = typeof (param);
+    if (t == 'string' || t == 'number' || t == 'boolean') {
+        paramStr += '&' + key + '='  + ((encode==null||encode) ? encodeURIComponent(param) : param); 
+    } else {
+        for (var i in param) {
+            var k = key == null ? i : key + (param instanceof Array ? '[' + i + ']' : '.' + i)
+            paramStr += urlEncode(param[i], k, encode)
+        }
+    }
+    return paramStr;
+}
+// XMLHttpRequest
+function getHttpObj() {
+    var httpobj = null;
+    try {
+        httpobj = new ActiveXObject("Msxml2.XMLHTTP");
+    }
+    catch (e) {
+        try {
+            httpobj = new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        catch (e1) {
+            httpobj = new XMLHttpRequest();
+        }
+    }
+    return httpobj;
+}
+
+var	submitForm = {
+		form1: {
+			parent_name: '',
+			child_sex: '',
+			child_grade: '',
+			teach_course: [],
+			teach_time: [],
+			teach_address: '',
+			teach_money: '',
+			parent_tel: '',
+			parent_wxqq: '',
+			teacher_require1: [],
+			teacher_require2: '',
+			child_basic: '',
+			child_detail: ''
+		},
+		form2: {
+			teacher_name: '',
+			teacher_sex: '',
+			teacher_edu: '',
+			teacher_class: '',
+			teach_area: '',
+			teacher_school: '',
+			teacher_major: '',
+			teach_year: '',
+			teacher_unidesc: '',
+			teach_course: [],
+			teach_style: [],
+			teach_time: [],
+			teach_desc: '',
+			teach_money: '',
+			teacher_tel: '',
+			teacher_school_id: '',
+			teacher_wxqq: ''
+		},
+		form3: {
+			job_title: '',
+			company_contact_name: '',
+			job_content: '',
+			job_time: '',
+			job_address: '',
+			job_money: '',
+			company_name: '',
+			company_site: '',
+			company_contact_tel: '',
+			company_contact_wxqq: '',
+			company_contact_remark: ''
+		},
+	}
+var vue_all=new Vue({
+	el: '#app',
+	data: function(){
+		return {
+			titleArr: ['家长请家教','教员做家教','机构招兼职'],
+			desc: '杭师大学生家教网，是一个专门为杭城社区中小学生提供一对一上门家教服务的网站。<br />口号：“给大学生一个能力展示的机会。”<br />宗旨：“立足杭师，扎根杭州，办大学生自己的家教网站。”<br />目标：“家长放心，学生安心。”',
+			params: null,
+			submitContent: [
+				// index0
+				[{
+					label: '家长称呼（如：张女士/先生）',
+					valueName: 'parent_name',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '孩子性别',
+					valueName: 'child_sex',
+					valueType: 'radio',
+					valueList: ['男','女'],
+					required: true,
+					column: 3,
+				},{
+					label: '孩子年级',
+					valueName: 'child_grade',
+					valueType: 'radio',
+					valueList: ['学前','小一','小二','小三','小四','小五','小六','初一','初二','初三','高一','高二','高三','成教'],
+					required: true,
+					column: 3,
+				},{
+					label: '辅导科目',
+					valueName: 'teach_course',
+					valueType: 'checkbox',
+					valueList: ['语文','数学','英语','物理','化学','生物','科学','历史','地理','政治','音乐','游泳','其他'],
+					required: true,
+					column: 3,
+				},{
+					label: '家教时间',
+					valueName: 'teach_time',
+					valueType: 'checkbox',
+					valueList: ['周一上','周一下','周一晚','周二上','周二下','周二晚','周三上','周三下','周三晚','周四上','周四下','周四晚','周五上','周五下','周五晚','周六上','周六下','周六晚','周日上','周日下','周日晚'],
+					required: true,
+					column: 3,
+				},{
+					label: '家教地址（默认上门）',
+					valueName: 'teach_address',
+					valueType: 'input',
+					placeholder: '请输入家教所在详细地址',
+					required: true,
+					column: 1,
+				},{
+					label: '家教报酬/小时',
+					valueName: 'teach_money',
+					valueType: 'input',
+					inputType: 'tel',
+					required: true,
+					column: 1,
+				},{
+					label: '手机号码',
+					valueName: 'parent_tel',
+					valueType: 'input',
+					inputType: 'tel',
+					inputMaxLength: 11,
+					required: true,
+					column: 1,
+				},{
+					label: '微信号或QQ（选填）',
+					valueName: 'parent_wxqq',
+					valueType: 'input',
+					required: false,
+					column: 1,
+				},{
+					label: '教员硬性要求',
+					valueName: 'teacher_require1',
+					valueType: 'checkbox',
+					valueList: ['男','女','男女不限','英语四级','英语六级','普通话标准','本科生','研究生','有家教经验','在职教师','其他'],
+					required: true,
+					column: 3,
+				},{
+					label: '教员软性要求（选填）',
+					valueName: 'teacher_require2',
+					valueType: 'textarea',
+					required: false,
+					column: 1,
+				},{
+					label: '孩子学习基础（选填）',
+					valueName: 'child_basic',
+					valueType: 'radio',
+					valueList: ['较差','一般','较好'],
+					required: false,
+					column: 3,
+				},{
+					label: '补充您孩子平时学习详情（选填）',
+					valueName: 'child_detail',
+					valueType: 'textarea',
+					required: false,
+					column: 1,
+				}],
+				// index1
+				[{
+					label: '姓名',
+					valueName: 'teacher_name',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '性别',
+					valueName: 'teacher_sex',
+					valueType: 'radio',
+					valueList: ['男','女'],
+					required: true,
+					column: 3,
+				},{
+					label: '目前学历',
+					valueName: 'teacher_edu',
+					valueType: 'radio',
+					valueList: ['本科','硕士','博士','其他'],
+					required: true,
+					column: 3,
+				},{
+					label: '目前身份',
+					valueName: 'teacher_class',
+					valueType: 'radio',
+					valueList: ['大一','大二','大三','大四','研一','研二','研三','博士','在职教师','退休教师','留学生','外籍教师'],
+					required: true,
+					column: 3,
+				},{
+					label: '可任教区域',
+					valueName: 'teach_area',
+					valueType: 'select',
+					valueList: ['上城区','下城区','西湖区','江干区','拱墅区','余杭区','萧山区','富阳区','临安区','建德市','桐庐县','淳安县'],
+					required: true,
+					column: 1,
+				},{
+					label: '就读学校',
+					valueName: 'teacher_school',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '所学专业',
+					valueName: 'teacher_major',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '教龄',
+					valueName: 'teach_year',
+					valueType: 'select',
+					valueList: ['无','一年','两年','三年','三年以上','五年以上'],
+					required: true,
+					column: 1,
+				},{
+					label: '自我描述及特长展示（选填）',
+					valueName: 'teacher_unidesc',
+					valueType: 'textarea',
+					required: false,
+					column: 1,
+				},{
+					label: '可教授科目',
+					valueName: 'teach_course',
+					valueType: 'checkbox',
+					valueList: ['语文','数学','英语','物理','化学','生物','科学','历史','地理','政治','音乐','游泳','其他'],
+					required: true,
+					column: 3,
+				},{
+					label: '可辅导方式',
+					valueName: 'teach_style',
+					valueType: 'checkbox',
+					valueList: ['老师上门','学生上门','协商后定'],
+					required: true,
+					column: 3,
+				},{
+					label: '可授课时间',
+					valueName: 'teach_time',
+					valueType: 'checkbox',
+					valueList: ['周一上','周一下','周一晚','周二上','周二下','周二晚','周三上','周三下','周三晚','周四上','周四下','周四晚','周五上','周五下','周五晚','周六上','周六下','周六晚','周日上','周日下','周日晚'],
+					required: true,
+					column: 3,
+				},{
+					label: '补课补充说明（选填）',
+					valueName: 'teach_desc',
+					valueType: 'textarea',
+					required: false,
+					column: 1,
+				},{
+					label: '家教报酬/小时',
+					valueName: 'teach_money',
+					valueType: 'input',
+					inputType: 'tel',
+					required: true,
+					column: 1,
+				},{
+					label: '手机号码',
+					valueName: 'teacher_tel',
+					valueType: 'input',
+					inputType: 'tel',
+					inputMaxLength: 11,
+					required: true,
+					column: 1,
+				},{
+					label: '学号',
+					valueName: 'teacher_school_id',
+					valueType: 'input',
+					inputType: 'tel',
+					required: true,
+					column: 1,
+				},{
+					label: '微信号或QQ（选填）',
+					valueName: 'teacher_wxqq',
+					valueType: 'input',
+					required: false,
+					column: 1,
+				}],
+				// index2
+				[{
+					label: '兼职标题',
+					valueName: 'job_title',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '发布者',
+					valueName: 'company_contact_name',
+					valueType: 'input',
+					required: false,
+					column: 1,
+				},{
+					label: '发布您的需求',
+					valueName: 'job_content',
+					valueType: 'textarea',
+					required: true,
+					column: 1,
+				},{
+					label: '兼职时间',
+					valueName: 'job_time',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '兼职地址',
+					valueName: 'job_address',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '兼职报酬',
+					valueName: 'job_money',
+					valueType: 'input',
+					inputType: 'tel',
+					required: true,
+					column: 1,
+				},{
+					label: '机构名称',
+					valueName: 'company_name',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '机构官网',
+					valueName: 'company_site',
+					valueType: 'input',
+					required: true,
+					column: 1,
+				},{
+					label: '联系人手机号',
+					valueName: 'company_contact_tel',
+					valueType: 'input',
+					inputType: 'tel',
+					inputMaxLength: 11,
+					required: true,
+					column: 1,
+				},{
+					label: '联系人微信号或QQ（选填）',
+					valueName: 'company_contact_wxqq',
+					valueType: 'input',
+					required: false,
+					column: 1,
+				},{
+					label: '备注',
+					valueName: 'company_contact_remark',
+					valueType: 'textarea',
+					required: false,
+					column: 1,
+				}]
+			],
+			submitForm: JSON.parse(JSON.stringify(submitForm)),
+			submiting: false
+		}
+	},
+	created: function(){
+		this.params = this.getParams()
+	},
+	mounted: function(){
+
+	},
+	methods: {
+		// 获取url参数
+		getParams:function() { 
+		  var url = window.location.search; //获取url中"?"符后的字串 
+		  var Params = new Object(); 
+		  if (url.indexOf("?") != -1) {
+		      var str = url.substr(1);
+		      strs = str.split("&");
+		      for(var i = 0; i < strs.length; i ++) { 
+		        Params[strs[i].split("=")[0]]=unescape(strs[i].split("=")[1]);
+		      }
+		  }
+		  return Params;
+		},
+		// 提交
+		submit:function(){
+			if(this.submiting){
+				return
+			}
+			this.submiting = true
+			setTimeout(function(){
+				this.submiting = false
+			}.bind(this),1500)
+
+			var form = JSON.parse(JSON.stringify(this.submitForm['form'+this.params.type]))
+			if(this.params.type==1){
+				form.teach_course = form.teach_course.join('；')
+				form.teach_time = form.teach_time.join('；')
+				form.teacher_require1 = form.teacher_require1.join('；')
+			}
+			// console.log(form)
+			var arr = this.submitContent[Number(this.params.type)-1]
+			for (var i = 0; i < arr.length; i++) {
+				if(arr[i].required && form[arr[i].valueName]==''){
+					console.log('required not pass')
+					// alert(arr[i].label+'不能为空')
+					this.$message(arr[i].label+'不能为空');
+					return false
+				}
+			}
+			console.log('required all pass')
+
+			console.log(form)
+			ajax_submit(this.params.type,form)
+		},
+		inputFocus:function(){
+			console.log('start typing')
+		}
+	}
+})
+
+// 提交ajax
+function ajax_submit(type,form){
+
+	var nameArr = ['parent','teacher','job']
+	var list = []
+	var _xhr = getHttpObj()
+	_xhr.open('post',xhr_origin+'/jiajiao/v1/newSubmit/'+nameArr[Number(type)-1],true);
+	_xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+	_xhr.onreadystatechange = function () {
+		console.log(_xhr)
+		if (_xhr.readyState==4) {
+			if (_xhr.status==200) {
+				_res = JSON.parse(_xhr.responseText)
+				console.log(_res)
+				if(_res.code==200){
+					vue_all.submiting = false
+			        vue_all.$alert('您的信息已经提交成功。家教管理员尽快会处理您的信息。确定将查看详情页面' || _res.message, '提示', {
+			          confirmButtonText: '确定',
+			          callback: function(){
+			          	vue_all.submitForm = submitForm
+
+			          	// 跳转到详情页面
+			          	if(_res.detailUrl){
+				          	window.location.href = _res.detailUrl
+			          	}
+			          }
+			        });
+				}else{
+					vue_all.$message.error(_res.message||'提交失败');
+				}
+			}else{
+				vue_all.$message.error('提交发生了错误');
+			}
+		}
+	}
+	var content = urlEncode(form).slice(1)
+	console.log('content=>',content)
+	_xhr.send(content);
+}
+</script>
+</body>
+</html>
